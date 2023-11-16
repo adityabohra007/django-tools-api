@@ -1,0 +1,78 @@
+<style>
+    body{
+     font-family: 'Courier New', Courier, monospace
+    }
+    #columns section {
+        display: flex;
+    }
+
+    #columns section label {
+        padding: 10px 2px;
+        margin: 2px 5px;
+        cursor: pointer;
+    }
+
+    #columns section label:hover {
+        background-color: rgb(233, 231, 231);
+    }
+</style>
+<div>
+    Sheets
+    {% for i in sheetnames %}
+    <span data-value="{{i}}" class="sheet-selection"> {{i}}</span>
+    {% endfor %}
+    <div id="columns">
+        <h5>Columns</h5>
+        <section>
+
+        </section>
+    </div>
+    <button id="delete_button">Delete</button>
+</div>
+<script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
+    integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8=" crossorigin="anonymous"></script>
+<script>
+    let sheet_selected = null;
+    const sheet_selection = document.querySelector('.sheet-selection')
+    sheet_selection.addEventListener('click', () => {
+        sendDataExtraction()
+    })
+    const url = new URLSearchParams(location.search)
+    sheet_selected = 'Sheet1';
+    url.set('sheet', 'Sheet1')
+    //url.set('column', 'column1')
+    function sendDataExtraction() {
+        const container = $('#columns section');
+
+        fetch('/excel_reduction/extraction_api/?' + url.toString())
+            .then(res => res.json())
+            .then(res => {
+                container.html('');
+                for (let i = 0; i < res.columns.length; i++) {
+                    let val = parseInt(i) + 1
+                    elem = '<label><input type="checkbox" name="column" class="column-names" data-value="' + res.columns[i] + '" data-position="' + val + '" >' + res.columns[i] + '</label>'
+                    container.append(elem)
+                }
+                console.log('res', res.columns)
+            })
+
+    }
+    $('#delete_button').click(() => {
+        const url = new URLSearchParams(location.search)
+        console.log($('input[type=checkbox]:checked'))
+        $('input[type=checkbox]:checked').each(function () {
+            console.log($(this).data('value'))
+            url.append('column', $(this).data('position'))
+        })
+        url.append('sheet', sheet_selected)
+        if (confirm('Delete?')) {
+            fetch('/excel_reduction/extraction_api/delete/?' + url.toString()).then(res=>res.json()).then(res=>{
+                if (res.status == 'deleted'){
+                    location.reload()
+                }
+            })
+        }
+    })
+
+
+</script>

@@ -1,0 +1,3 @@
+select sheet and column name to delete that column 
+
+

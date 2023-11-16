@@ -1,0 +1,24 @@
+normal pomo functionality
+one more section where all the done pomo and there timing can be showing 
+in dashboard ,which is dragable
+
+date -  time -time time time
+
+pomo--
+firstly creating a timer is priority -
+timer depends on a model 
+pomotimer-
+ -start time
+ -end time
+
+pomo tasks-
+''this contains the tasks , which would be assigned the pomo timer when timer is over''
+ //-fk - timer
+ -title 
+ -description
+
+pomotask-time model-
+'' this will have foreign keys of task and timer''
+ -pomotask
+ -pomotimer
+ 
