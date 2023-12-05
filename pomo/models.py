@@ -1,6 +1,6 @@
 from collections.abc import Iterable
 from django.db import models
-
+from django.contrib.auth.models import User
 # Create your models here.
 class Paused(models.Model):
     '''This is used to manage pause data 
@@ -15,7 +15,7 @@ class Timer(models.Model):
     start_time = models.DateTimeField(null=True)
     end_time = models.DateTimeField(null=True)# at the at which   , when pause is added each time its value changes , like if pause starts then 
     #nothing changes but when pause ends update endtime accordig to pauses between the start_time and end_time and time taken by pauses to total to 25min for now
-    is_completed =models.BooleanField(default=True) # when completed is pressed is false
+    is_completed =models.BooleanField(default=False) # when completed is pressed is false
     completion_time = models.DateTimeField(null=True)
     is_paused = models.BooleanField(default=False) # when paused , to start create new instance of timer where it complete remaining time
     paused = models.ManyToManyField(Paused,null=True,blank=True) # save all pause data here  so as to calculate the completetion of timer based on pause
@@ -28,10 +28,13 @@ class Task(models.Model):
     want_to_focus = models.IntegerField()
     check_off = models.BooleanField(default=False,null=True)
     is_deleted= models.BooleanField(default=False,null=True)
+    # is_selected = models.BooleanField(default=False,null=True)
 
 class TaskSelected(models.Model):
-    task = models.ForeignKey(Task,on_delete=models.CASCADE)
-    selected = models.BooleanField(default=False)
+    '''Any task that is in this model is the selected task'''
+    task = models.OneToOneField(Task,on_delete=models.PROTECT)
+    # selected = models.BooleanField(default=False)
+    user = models.OneToOneField(User,on_delete=models.PROTECT)
     
 class TaskPosition(models.Model):
     position = models.IntegerField(null=True)
@@ -41,4 +44,16 @@ class TaskPosition(models.Model):
 class TaskTimer(models.Model):
     timer = models.ForeignKey(Timer,on_delete=models.CASCADE)
     task = models.ForeignKey(Task,on_delete=models.CASCADE)
+    
+
+class Theme(models.Model):
+    short_break = models.CharField(max_length=10)
+    long_break =  models.CharField(max_length=10)
+    pomodoro =  models.CharField(max_length=10)
+
+class Configuration(models.Model):
+    theme = models.OneToOneField(Theme,on_delete=models.PROTECT)
+    pomo_time = models.IntegerField()
+    short_break_time = models.IntegerField()
+    long_break_time = models.IntegerField()
     

@@ -1,13 +1,14 @@
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
 from rest_framework.response import Response
-from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer
+from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer,TaskSelectedSerializer,ConfigurationSerializer
 from rest_framework import status
-
+from .utils import parse_date,parse_datetime_with_timezone,get_time_left
 # from django.db.transaction import atomic
 from .models import *
 import datetime
 from .utils import check_if_any_timer_already_active
+from django.db.models import Q
 # right now working on guest user only 
 
 class InitialViewApi(APIView):
@@ -15,7 +16,10 @@ class InitialViewApi(APIView):
         All task list
         theme data 
     '''
-    pass
+    # def get(self,request):
+    #     if request.data.get('current_time'):
+    #         pass
+    #     timer = Timer.objects.filter(is_completed=False,end_time__gt=timezone.now)
 
 class ListTaskView(generics.ListAPIView):
     serializer_class = TaskDataSerializer
@@ -67,9 +71,69 @@ def get_current_running_time(start_time):
     pass
 def any_time_active():
     pass
-class TimerStatus(APIView):
+
+class ThemeApiView(APIView):
+    pass
+class ConfigApiView(APIView):
     def get(self,request):
-        timer= request.GET.get('timer')
+        ser = ConfigurationSerializer(instance=Configuration.objects.first())
+        return Response({'data':ser.data},status=status.HTTP_200_OK)
+class TaskSelectedView(APIView):
+    def get(self,request):
+        instance = TaskSelected.objects.filter() #filter(user =request.user)
+        if instance.count():
+            ser = TaskSelectedSerializer(instance=instance.first())
+            return Response({'selected':ser.data},status=status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_200_OK)
+    def post(self):
+        pass
+class TimerStatus(APIView):
+    '''
+    Send timer end_time,status
+    '''
+    def get(self,request):
+        # return Response()
+        print(request.GET.get('current_time'),'current')
+        # Added paused filter 
+        current = parse_datetime_with_timezone(request.GET.get('current_time'))
+        instance =Timer.objects.filter().order_by('-start_time')
+        # Timer.objects.filter(
+        #     # Q(end_time__gt=parse_datetime_with_timezone(request.GET.get('current_time')))&Q(is_completed=False)|
+        #     # (Q(end_time__lt=parse_datetime_with_timezone(request.GET.get('current_time')))&Q(is_completed=False)&Q(is_paused=True))
+            
+        #     ).order_by('-start_time').exclude(is_completed=True).filter(Q(is_paused=True)&Q(end_time__lt=current)|Q(is_paused=True)&Q(end_time__gt=current)) #.exclude(is_paused=True,end_time__gt=parse_datetime_with_timezone(request.GET.get('current_time')))
+        print(instance)
+        if instance :
+            instance=instance.first()
+            print(instance.start_time,instance.end_time)
+
+            timer_status ='paused' if instance.is_paused else 'running'
+            if timer_status=='paused':
+                # calculate estimate ,on basis of config time and time elapsed
+                paused =instance.paused.all()
+                time_count = 0
+                # for item in paused:
+                #     try:
+                #         time_count+= (item.end_time-item.start_time ).total_seconds()
+                #     except Exception as e:
+                #         current = parse_datetime_with_timezone(request.GET.get('current_time'))
+                #         time_count+=(current-item.start_time).total_seconds()
+                #         print(e,'exception:might be none')
+                # start_to_first_pause_diff=(instance.paused.order_by('-start_time').first().start_time-instance.start_time).total_seconds()
+                
+                # config = Configuration.objects.first()
+                # print(config.pomo_time-time_count,config.pomo_time*60-time_count,time_count,start_to_first_pause_diff)# this is what we need to added to current time and send to frontend
+                # end_time=current+datetime.timedelta(seconds=config.pomo_time*60-time_count-int(start_to_first_pause_diff))
+                # print(end_time)
+                ser = TimerDataSerializer(instance=instance)
+                end_time = get_time_left(instance,current)
+                print(end_time)
+                return Response( {'end_time':end_time,'id':instance.id, 'status':timer_status,'timer':ser.data})
+
+            return Response( {'end_time':instance.end_time,'id':instance.id, 'status':timer_status,})
+        else:
+            return Response({'status':'Nothing'})
         timer = Timer.objects.get(id=int(timer))
         if timer.is_completed:
             return Response({'status':'completed'},status=status.HTTP_200_OK)
@@ -86,10 +150,13 @@ class StartTimeView(APIView):
         check if any timer are active
     '''
     def post(self,request):
-        if check_if_any_timer_already_active(request.POST.get('start_time')):
+        print(request.data,'ddddddd',request.data.get('start_time'))
+        start_time = parse_datetime_with_timezone(request.data.get('start_time'))
+        if check_if_any_timer_already_active(start_time):
+            print('already')
             return Response(status=status.HTTP_403_FORBIDDEN)
-        timer_serializer = TimerSerializer(data=request.data) # start time 
-        if not request.POST.get('task'):
+        timer_serializer = TimerSerializer(data={'start_time':start_time}) # start time 
+        if not request.data.get('task'):
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         if timer_serializer.is_valid():
             timer = timer_serializer.save()
@@ -97,10 +164,10 @@ class StartTimeView(APIView):
             timer.is_active = True # to  show that timer is active and not completed by force
             timer.save()
             print(timer)
-            task = Task.objects.get(id=int(request.POST.get('task')))
+            task = Task.objects.get(id=int(request.data.get('task')))
             time_task = TaskTimer(timer=timer,task=task)
             time_task.save()
-            return Response(status=status.HTTP_201_CREATED)
+            return Response({'end_time':timer.end_time,'id':timer.id},status=status.HTTP_201_CREATED)
         else:
             print(timer_serializer.errors)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -115,11 +182,12 @@ class UpdateTimeView(APIView):
             pass
         if not request.POST.get('completion_time'):
             pass
-        current_time =request.POST.get('current_time')
-        timer = request.POST.get('timer')
+        current_time =parse_datetime_with_timezone(request.data.get('current_time'))
+        timer = request.data.get('timer')
+        print(timer,request.data,'pausing')
         timer = Timer.objects.get(id=int(timer))
-        if request.POST.get('state'):
-            state = request.POST.get('state')
+        if request.data.get('state'):
+            state = request.data.get('state')
             if state == 'pause':
                 print(state)
                 # Check if already paused
@@ -128,13 +196,15 @@ class UpdateTimeView(APIView):
                 timer.is_paused = True
                 timer.save()
                 timer.paused.add(paused)
+                timer.save()
                 # timer.paused.
                 return Response(status=status.HTTP_200_OK)
 
             elif state == 'unpause':
+                # time is increasing here please check-------
                 #If not paused  reject
-                end_time = request.POST.get('end_time')
-                if not end_time:
+                # end_time = request.POST.get('end_time')
+                if not current_time:
                     return Response(status=status.HTTP_400_BAD_REQUEST)
                 if timer.is_paused:
                     paused = timer.paused.all()
@@ -143,9 +213,10 @@ class UpdateTimeView(APIView):
                         # Find if any have end_time == none
                         if i.end_time == None:
                             paused_instance=i  
+                    print(paused_instance,'pause_instance')
                     if paused_instance:
                         # use end_time to add the time to that instance
-                        paused_instance.end_time = end_time
+                        paused_instance.end_time = current_time
                         paused_instance.save()
                         timer.is_paused=False
                         time_count = 0
@@ -154,11 +225,11 @@ class UpdateTimeView(APIView):
                             try:
                                 time_count+= (i.end_time-i.start_time ).total_seconds()//60
                             except Exception as e:
-                                print(e)
+                                print(e,'exception')
                         print(time_count,'time_count')
                         timer.end_time +=  datetime.timedelta(minutes=time_count) # now start_time  to end_time ,subtract pause_time (add all time from all pause time ) to find total time completed
-                        paused_instance.save()
-                        timer =timer.save()
+                        # paused_instance.save()
+                        timer.save()
                         ser = TimerDataSerializer(instance=timer)
                         return Response(
                             {'timer':ser.data},
@@ -169,7 +240,7 @@ class UpdateTimeView(APIView):
                 else:
                     return Response(status=status.HTTP_403_FORBIDDEN)
             elif state == 'completed':
-                completion_time = request.POST.get('completion_time')
+                completion_time = request.data.get('completion_time')
                 timer.completion_time = completion_time
                 timer.is_completed = True
                 timer.save()
@@ -180,6 +251,9 @@ class UpdateTimeView(APIView):
             return Response({'error':'state field not found'},status=status.HTTP_400_BAD_REQUEST)
 # class StopTimeView(generics.UpdateAPIView):
 #     pass
+
+def calculate_end_time():
+    pass
 class CreateBreakView(generics.CreateAPIView):
     '''Long/short '''
     pass
