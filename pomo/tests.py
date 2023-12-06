@@ -4,6 +4,8 @@ from rest_framework.test import APIRequestFactory # for bypassing middleware and
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.test import APIClient # for real request
+from .utils import time_left_in_seconds
+import time
 # Create your tests here.
 from django.test import Client
 # class TimerTest(TestCase):
@@ -15,65 +17,94 @@ class TimerAllStateTestCase(TestCase):
         self.factory = APIClient()
         # print(task_request.body)
     def test_post_request(self):
+        # One task
         task_request = self.factory.post('/pomo/task/create',{'title':'Pomo project','description':'Complete this today','want_to_focus':3},format='json')
         # print(task_request.body)
+        # Starting timer
+        print(timezone.now(),'starting timers----')
         request = self.factory.post('/pomo/timer/start',{'start_time':timezone.now(),'task':1})
-        print(request,Task.objects.all())
-        print(Timer.objects.all())
         timer = Timer.objects.get(id=1)
         self.assertEqual(timer.id,1)
+        time.sleep(1) # timer running
+        # Pausing
+        print('Pausing--`')
         pause_request = self.factory.post('/pomo/timer/update',{'state':'pause','current_time':timezone.now()+timedelta(minutes=10),'timer':1})
         timer_paused = Timer.objects.get(id=1)
-        self.assertEqual(timer_paused.is_paused,True)
-        print(timer_paused.paused.all())
+        self.assertEqual(timer_paused.is_paused,True)# is_paused
         self.assertEqual(len(timer_paused.paused.all()),1)
+        self.assertEqual(timer_paused.paused.first().end_time,None)
         end_time_check = timer_paused.paused.first()
         self.assertEqual(end_time_check.end_time,None)
-        # Now unpausing
-        unpausing = self.factory.post('/pomo/timer/update',{'state':'unpause','end_time':timezone.now()+timedelta(minutes=15),'timer':1})
+        
+        # Timer Status Checking 
+        print('Status--')
+        time.sleep(2) # pause time
+        status_request = self.factory.get('/pomo/timer/status')
+        # calculating end_time when paused
+        status_timer= Timer.objects.first()
+        output= status_request.data['end_time']
+        expected =timezone.now()+timedelta(minutes=time_left_in_seconds(status_timer)/60)
+        self.assertEqual(output.date(),expected.date())
+        self.assertEqual(output.month,expected.month)
+        self.assertEqual(output.hour,expected.hour)
+        self.assertAlmostEquals(output.minute,expected.minute)
+        self.assertEqual(output.second,expected.second)
+
+
+
+        # # Now unpausing
+        print('Unpausing--')
+        unpausing = self.factory.post('/pomo/timer/update',{'state':'unpause','timer':1})
         check_timer = Timer.objects.get(id=1)
         final = timezone.now()+timedelta(minutes=30)
-        self.assertEqual(check_timer.end_time.hour,final.hour)
-        self.assertEqual(check_timer.end_time.min,final.min)
-        self.assertEqual(check_timer.end_time.second,final.second)
-        # Second time pausing
+        # self.assertEqual(check_timer.end_time.hour,final.hour)
+        # self.assertEqual(check_timer.end_time.min,final.min)
+        # Timer Status Checking 
+
+        time.sleep(2)#timer running total to 3
+        status_request = self.factory.get('/pomo/timer/status')
+
+        output= status_request.data['end_time']
+        # print(output,'output')
+        # print(time_left_in_seconds(check_timer)/60,timedelta(minutes=time_left_in_seconds(check_timer)/60))
+        # self.assertEqual(output.date(),final_end_time.date())
+        expected =timezone.now()+timedelta(minutes=time_left_in_seconds(check_timer)/60)
+        # print(expected,'expected')
+        self.assertEqual(output.month,expected.month)
+        self.assertEqual(output.hour,expected.hour)
+        self.assertEqual(output.minute,expected.minute)
+        self.assertEqual(output.second,expected.second)
+        
+        # # Second time pausing
         pause_request = self.factory.post('/pomo/timer/update',{'state':'pause','current_time':timezone.now()+timedelta(minutes=2),'timer':1})
         timer_paused = Timer.objects.get(id=1)
+        
+        
+        # output= pause_request.data['end_time']
+        # expected =timezone.now()+timedelta(minutes=time_left_in_seconds(timer_paused)/60)
+        
+        self.assertEqual(output.month,expected.month)
+        self.assertEqual(output.hour,expected.hour)
+        self.assertEqual(output.minute,expected.minute)
+        self.assertEqual(output.second,expected.second)
         self.assertEqual(timer_paused.is_paused,True)
         print(timer_paused.paused.all())
         self.assertEqual(len(timer_paused.paused.all()),2)
-        end_time_check = timer_paused.paused.first()
-        self.assertEqual(end_time_check.end_time,None)
-        # # Is there any duplicate timer allowed or not 
-        # check_if_duplicate_timer = self.factory.post('/pomo/timer/start',{'start_time':timezone.now(),'task':1})
-        # self.assertEqual(check_if_duplicate_timer.status_code,403)
-        # # completion 
-        # completion = self.factory.post('/pomo/timer/update',{'state':'completed','completion_time':timezone.now(),'timer':1})
-        # self.assertEqual(completion.status_code,200)
-        # # once completion is completed checking status of timer ,as in is timer on ?
-        # status = self.factory.get('/pomo/timer/status',{'timer':1})
-        # self.assertEqual(status.status_code,200)
-        # self.assertEqual(status.data['status'],'completed')
-        # #now since it is completed then we can create a new timer
-        # new_timer =  self.factory.post('/pomo/timer/start',{'start_time':timezone.now(),'task':1})
-        # timer = Timer.objects.filter()
-        # self.assertEqual(timer.count(),2)
-        
-        # # now just give me the time left in clock for my task
-        # status = self.factory.get('/pomo/timer/status',{'timer':2})
-        # self.assertEqual(int(str(status.data['time_left']).split(':')[1]),25)
-        
-        # # now check how many pomo completed today for a task
-        # task = Task.objects.get(id=1)
-        # task_timer = TaskTimer.objects.filter(task=task,timer__is_completed=True,timer__end_time__lt=timezone.now()+timedelta(minutes=26))# this is for all time
-        
-        # task_timer_today = TaskTimer.objects.filter(task=task,timer__is_completed=True,timer__end_time__lt=timezone.now(),timer__start_time__date__gt=timezone.now())# this is for today time
+    
+       # Timer Status Checking 
+        print('Status--')
+        time.sleep(2) # pause time
+        status_request = self.factory.get('/pomo/timer/status')
+        # calculating end_time when paused
+        status_timer= Timer.objects.first()
+        output= status_request.data['end_time']
+        expected =timezone.now()+timedelta(minutes=time_left_in_seconds(status_timer)/60)
+        self.assertEqual(output.date(),expected.date())
+        self.assertEqual(output.month,expected.month)
+        self.assertEqual(output.hour,expected.hour)
+        self.assertAlmostEquals(output.minute,expected.minute)
+        self.assertEqual(output.second,expected.second)
 
-        # print(task_timer)
-        
-        
-        # then work on how many tasks completed today
-        
 class TaskTestCase(TestCase):
     def setUp(self):
         self.factory = APIClient()

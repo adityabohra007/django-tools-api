@@ -57,3 +57,10 @@ class Configuration(models.Model):
     short_break_time = models.IntegerField()
     long_break_time = models.IntegerField()
     
+class CustomPomoCount(models.Model):
+    '''To store custom added pomo completed time
+        which will not be included in chart
+    '''
+    task = models.ForeignKey(Task)
+    start_time = models.DateTimeField()
+    count = models.IntegerField()
