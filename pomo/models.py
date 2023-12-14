@@ -19,7 +19,7 @@ class Timer(models.Model):
     completion_time = models.DateTimeField(null=True)
     is_paused = models.BooleanField(default=False) # when paused , to start create new instance of timer where it complete remaining time
     paused = models.ManyToManyField(Paused,null=True,blank=True) # save all pause data here  so as to calculate the completetion of timer based on pause
-
+    user =models.ForeignKey(User,on_delete=models.PROTECT)
     
 class Task(models.Model):
     '''Right now without auth'''
@@ -29,12 +29,13 @@ class Task(models.Model):
     check_off = models.BooleanField(default=False,null=True)
     is_deleted= models.BooleanField(default=False,null=True)
     # is_selected = models.BooleanField(default=False,null=True)
+    user= models.ForeignKey(User,on_delete=models.PROTECT)
 
 class TaskSelected(models.Model):
     '''Any task that is in this model is the selected task'''
     task = models.OneToOneField(Task,on_delete=models.PROTECT)
     # selected = models.BooleanField(default=False)
-    user = models.OneToOneField(User,on_delete=models.PROTECT)
+    user = models.OneToOneField(User,on_delete=models.PROTECT,default=1)
     
 class TaskPosition(models.Model):
     position = models.IntegerField(null=True)
@@ -44,18 +45,20 @@ class TaskPosition(models.Model):
 class TaskTimer(models.Model):
     timer = models.ForeignKey(Timer,on_delete=models.CASCADE)
     task = models.ForeignKey(Task,on_delete=models.CASCADE)
-    
+
 
 class Theme(models.Model):
     short_break = models.CharField(max_length=10)
     long_break =  models.CharField(max_length=10)
     pomodoro =  models.CharField(max_length=10)
+    # user = models.OneToOneField(User,on_delete=models.PROTECT,default=1)
 
 class Configuration(models.Model):
     theme = models.OneToOneField(Theme,on_delete=models.PROTECT)
     pomo_time = models.IntegerField()
     short_break_time = models.IntegerField()
     long_break_time = models.IntegerField()
+    user = models.OneToOneField(User,on_delete=models.PROTECT,default=1)
     
 # class CustomPomoCount(models.Model):
 #     '''To store custom added pomo completed time
@@ -64,3 +67,11 @@ class Configuration(models.Model):
 #     task = models.ForeignKey(Task)
 #     start_time = models.DateTimeField()
 #     count = models.IntegerField()
+
+class Break(models.Model):
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    break_type = models.CharField(choices=(('LONG','LONG'),('SHORT','SHORT')),max_length=5)
+    user = models.ForeignKey(User,on_delete=models.PROTECT)
+    def __str__(self):
+        return self.break_type +'('+str(self.start_time)+'-'+str(self.end_time)+')'

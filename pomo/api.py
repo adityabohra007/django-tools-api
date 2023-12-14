@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
 from rest_framework.response import Response
-from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer,TaskSelectedSerializer,ConfigurationSerializer
+from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer,TaskSelectedSerializer,ConfigurationSerializer,TaskTimerSerializer,BreakSerializer
 from rest_framework import status
 from .utils import parse_date,parse_datetime_with_timezone,time_left_in_seconds
 from django.utils import timezone
@@ -10,6 +10,8 @@ from .models import *
 import datetime
 from .utils import check_if_any_timer_already_active
 from django.db.models import Q
+from rest_framework.permissions import IsAuthenticated
+from dj_rest_auth.jwt_auth import JWTAuthentication,JWTCookieAuthentication
 # right now working on guest user only 
 
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -22,15 +24,6 @@ class GoogleLogin(SocialLoginView): # if you want to use Authorization Code Gran
     callback_url = 'http://127.0.0.1:8081/accounts/google/login/callback/'
     client_class = OAuth2Client
 
-class InitialViewApi(APIView):
-    ''' Timer if any running
-        All task list
-        theme data 
-    '''
-    # def get(self,request):
-    #     if request.data.get('current_time'):
-    #         pass
-    #     timer = Timer.objects.filter(is_completed=False,end_time__gt=timezone.now)
 
 class ListTaskView(generics.ListAPIView):
     serializer_class = TaskDataSerializer
@@ -38,10 +31,13 @@ class ListTaskView(generics.ListAPIView):
         return Task.objects.filter()
     
 class CreateTaskView(APIView):
-
+    permission_classes=[IsAuthenticated]
+    authentication_classes=[]
     def post(self,request):
         print('running')
-        serializer_class = TaskSerializer(data=request.data)
+        data= request.data
+        data['user'] = request.user.id
+        serializer_class = TaskSerializer(user=request.user,data=data)
         if serializer_class.is_valid():
         # serializer_class
             instance = serializer_class.save()
@@ -51,19 +47,23 @@ class CreateTaskView(APIView):
             # time_serializer = TimerSerializer(data=request.data)
             # if time_serializer.is_valid():
             #     timer_saved = time_serializer.save()
-                # tt = TaskTimer(task=instance,timer=timer_saved)
-                # tt.save()
+            #     tt = TaskTimer(task=instance,timer=timer_saved)
+            #     tt.save()
             return Response(status=status.HTTP_201_CREATED)
+
+        else:
+            print(serializer_class.errors)
         return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 class TaskView(generics.RetrieveUpdateDestroyAPIView):
-    
+    permission_classes=(IsAuthenticated,)
+
     def put(self,request):
         print(request.data.get('task'))
         if not request.data.get('task'):
             return Response(status=status.HTTP_304_NOT_MODIFIED)
         instance= Task.objects.get(id=int(request.data.get('task')))
-        serializer_class = TaskSerializer(instance=instance,data=request.data,partial=True)
+        serializer_class = TaskSerializer(user=request.user,instance=instance,data=request.data,partial=True)
         if serializer_class.is_valid():
             instance = serializer_class.save()
             return Response(status=status.HTTP_202_ACCEPTED)
@@ -86,10 +86,14 @@ def any_time_active():
 class ThemeApiView(APIView):
     pass
 class ConfigApiView(APIView):
+    permission_classes=(IsAuthenticated,)
+    # authentication_classes=[JWTCookieAuthentication]
     def get(self,request):
         ser = ConfigurationSerializer(instance=Configuration.objects.first())
         return Response({'data':ser.data},status=status.HTTP_200_OK)
 class TaskSelectedView(APIView):
+    permission_classes=(IsAuthenticated,)
+
     def get(self,request):
         instance = TaskSelected.objects.filter() #filter(user =request.user)
         if instance.count():
@@ -106,7 +110,7 @@ class TaskSelectedView(APIView):
             taskSelect=taskSelect.get()
             taskSelect.task=task.get()
         else:
-            taskSelect = TaskSelected(user=user,task=task)
+            taskSelect = TaskSelected(user=user,task=task.get())
         taskSelect.save()
         # ser = TaskSelectedSerializer(instance=taskSelect)
         return Response(status=status.HTTP_202_ACCEPTED)
@@ -115,12 +119,13 @@ class TimerStatus(APIView):
     '''
     Send timer end_time,status
     '''
+    permission_classes=[IsAuthenticated]
     def get(self,request):
         # return Response()
         print(request.GET.get('current_time'),'current')
         # Added paused filter 
         current = parse_datetime_with_timezone('')#request.GET.get('current_time'))
-        instance =Timer.objects.filter(is_completed=False).order_by('-start_time')
+        instance =Timer.objects.filter(is_completed=False,user=request.user).order_by('-start_time')
         # Timer.objects.filter(
         #     # Q(end_time__gt=parse_datetime_with_timezone(request.GET.get('current_time')))&Q(is_completed=False)|
         #     # (Q(end_time__lt=parse_datetime_with_timezone(request.GET.get('current_time')))&Q(is_completed=False)&Q(is_paused=True))
@@ -143,6 +148,10 @@ class TimerStatus(APIView):
             else:
                 return Response( {'end_time':instance.end_time,'id':instance.id, 'status':timer_status,})
         else:
+            break_instance = Break.objects.filter(user=request.user,end_time__gt=timezone.now())
+            if break_instance.count():
+                break_ser = BreakSerializer(instance=break_instance.get())
+                return Response(break_ser.data,status=status.HTTP_200_OK)
             return Response({'status':'Nothing'})
         timer = Timer.objects.get(id=int(timer))
         if timer.is_completed:
@@ -154,6 +163,7 @@ class TimerStatus(APIView):
         
         return Response({"data":serializer.data,'time_left':time_left})
 class StartTimeView(APIView):
+    permission_classes=[IsAuthenticated]
     ''' Timer frontend -
         If not authenticated just start timer without backend api
         Condition :
@@ -165,7 +175,7 @@ class StartTimeView(APIView):
         if check_if_any_timer_already_active(start_time):
             print('already')
             return Response(status=status.HTTP_403_FORBIDDEN)
-        timer_serializer = TimerSerializer(data={'start_time':start_time}) # start time 
+        timer_serializer = TimerSerializer(user=request.user,data={'start_time':start_time,'user':request.user.id}) # start time 
         if not request.data.get('task'):
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         if timer_serializer.is_valid():
@@ -185,13 +195,9 @@ class UpdateTimeView(APIView):
     '''State data - pause
                   - completed
     '''
+    permission_classes=[IsAuthenticated]
+
     def post(self,request):
-        if not request.POST.get('timer'):
-            pass
-        if not request.POST.get('current_time'):
-            pass
-        if not request.POST.get('completion_time'):
-            pass
         current_time =parse_datetime_with_timezone('')
         timer = request.data.get('timer')
         print(timer,request.data,'pausing')
@@ -265,21 +271,62 @@ class UpdateTimeView(APIView):
 
 def calculate_end_time():
     pass
-class CreateBreakView(generics.CreateAPIView):
+class CreateBreakView(APIView):
     '''Long/short '''
-    pass
-class PauseBreakView(generics.UpdateAPIView):
-    pass
+    permission_classes=[IsAuthenticated]
+    def post(self,request):
+        if not request.POST.get('break_type'):
+            pass
+        instance = Break(start_time = timezone.now(),break_type =request.POST.get('break_type'),user=request.user )
+        config = Configuration.objects.get(user=request.user)
+
+        if request.POST.get('break_type')=='LONG':
+            config = Configuration.objects.get(user=request.user)
+            instance.end_time = timezone.now()+datetime.timedelta(minutes=(config.long_break_time))
+        else:
+            instance.end_time = timezone.now()+datetime.timedelta(minutes=(config.shor))
+        # if instance.val():
+        instance.save()
+        return Response({'start_time':instance.start_time},status=status.HTTP_201_CREATED)
+        # else:
+        #     return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+class PauseBreakView(APIView):
+    permission_classes=[IsAuthenticated]
+    def post(self,request):
+        if not request.POST.get('break'):
+            pass
+        instance = Break.objects.get(id= int(request.POST.get('break')))
+        instance.end_time = timezone.now()
+        instance.save()
+        return Response(status=status.HTTP_200_OK)
 
 
 class SettingsAPIView(APIView):
     pass
 
 
+class DashboardAPIView(APIView):
+    '''
+        Uses data, One day's data , timer data ,pause data ,no data compare.
+        color coding , tags##. 
+    '''
+    permission_classes=[IsAuthenticated]
+    def get(self,request):
+        print(TaskTimer.objects.filter(),'dashboard tasktimer')
+        task_timer = TaskTimer.objects.filter(task__user=request.user,timer__end_time__lt=timezone.now()).order_by('timer__start_time')
+        ser = TaskTimerSerializer(task_timer,many=True)
+        break_instance  = Break.objects.filter(user =request.user)
+        break_ser = BreakSerializer(break_instance,many=True)
+        # Now make a timeline, iterate over the data and convert the 1 minute to 1px and by difference in pauses use it to show pauses and so on.
+        # leave rest of the postion which was not used used as white space
+        return Response({'data':ser.data,'break':break_ser.data},status=status.HTTP_200_OK)
 
 
-# Next to do is 
-#  Initial data send api 
-#Theme API
-#Make it React
-#
+
+
+
+# timeline api
+# green for task time, gray for break,white for no task
+# on hover show text, togglable .
+# date on first column,
+# tags-to seperate task and show total /max of which category of task is completed

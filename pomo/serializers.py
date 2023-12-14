@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Task,Timer,Paused,TaskSelected,Configuration,Theme
+from rest_framework.fields import empty
+from .models import Task,Timer,Paused,TaskSelected,Configuration,Theme,TaskTimer,Break
 from .utils import parse_date
 class PausedSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,6 +10,9 @@ class TimerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Timer
         fields='__all__'
+    def __init__(self,user, instance=None, data=..., **kwargs):
+        self.user=user
+        super().__init__(instance, data, **kwargs)
     # def validate_start_time(self,value):
     #     return parse_date(value)
     
@@ -24,7 +28,10 @@ class TimerDataSerializer(serializers.ModelSerializer):
 class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ['title','description','want_to_focus']
+        fields = '__all__'
+    def __init__(self, user,instance=None, data=..., **kwargs):
+        self.user= user
+        super().__init__(instance, data, **kwargs)
     # def save(self, **kwargs):
         
 class TaskDataSerializer(serializers.ModelSerializer):
@@ -38,6 +45,12 @@ class TaskSelectedSerializer(serializers.ModelSerializer):
         model = TaskSelected
         fields= ['task']
         
+class TaskTimerSerializer(serializers.ModelSerializer):
+    task = TaskDataSerializer()
+    timer = TimerDataSerializer()
+    class Meta:
+        model = TaskTimer
+        fields="__all__"
 class ThemeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Theme
@@ -48,3 +61,14 @@ class ConfigurationSerializer(serializers.ModelSerializer):
         model = Configuration
         fields ='__all__'
 
+class ConfigurationFormSerializer(serializers.ModelSerializer):
+    theme = ThemeSerializer()
+    class Meta:
+        model = Configuration
+        exclude =['theme']
+
+
+class BreakSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Break
+        fields=['id','start_time','end_time','break_type']
