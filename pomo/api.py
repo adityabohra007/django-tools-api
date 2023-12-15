@@ -5,6 +5,7 @@ from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,Timer
 from rest_framework import status
 from .utils import parse_date,parse_datetime_with_timezone,time_left_in_seconds
 from django.utils import timezone
+from django.db import transaction
 # from django.db.transaction import atomic
 from .models import *
 import datetime
@@ -28,11 +29,11 @@ class GoogleLogin(SocialLoginView): # if you want to use Authorization Code Gran
 class ListTaskView(generics.ListAPIView):
     serializer_class = TaskDataSerializer
     def get_queryset(self):
-        return Task.objects.filter()
+        return Task.task.active()
     
 class CreateTaskView(APIView):
     permission_classes=[IsAuthenticated]
-    authentication_classes=[]
+    # authentication_classes=[]
     def post(self,request):
         print('running')
         data= request.data
@@ -40,16 +41,22 @@ class CreateTaskView(APIView):
         serializer_class = TaskSerializer(user=request.user,data=data)
         if serializer_class.is_valid():
         # serializer_class
-            instance = serializer_class.save()
-            tp = TaskPosition(task=instance,position=0)
-            tp.save()
-            # Time also have to be supplied from frontend
-            # time_serializer = TimerSerializer(data=request.data)
-            # if time_serializer.is_valid():
-            #     timer_saved = time_serializer.save()
-            #     tt = TaskTimer(task=instance,timer=timer_saved)
-            #     tt.save()
-            return Response(status=status.HTTP_201_CREATED)
+            try:
+                with transaction.atomic():
+                    instance = serializer_class.save()
+                    tp = TaskPosition(task=instance,position=0)
+                    tp.save()
+                    return Response(status=status.HTTP_201_CREATED)
+
+            except:
+                print('Error saving')
+                return Response(status=status.HTTP_403_FORBIDDEN)
+                # Time also have to be supplied from frontend
+                # time_serializer = TimerSerializer(data=request.data)
+                # if time_serializer.is_valid():
+                #     timer_saved = time_serializer.save()
+                #     tt = TaskTimer(task=instance,timer=timer_saved)
+                #     tt.save()
 
         else:
             print(serializer_class.errors)
@@ -59,10 +66,10 @@ class TaskView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes=(IsAuthenticated,)
 
     def put(self,request):
-        print(request.data.get('task'))
-        if not request.data.get('task'):
+        print(request.data.get('id'))
+        if not request.data.get('id'):
             return Response(status=status.HTTP_304_NOT_MODIFIED)
-        instance= Task.objects.get(id=int(request.data.get('task')))
+        instance= Task.objects.get(id=int(request.data.get('id')))
         serializer_class = TaskSerializer(user=request.user,instance=instance,data=request.data,partial=True)
         if serializer_class.is_valid():
             instance = serializer_class.save()
@@ -74,7 +81,7 @@ class TaskView(generics.RetrieveUpdateDestroyAPIView):
         if not request.data.get('task'):
             pass
         task = Task.objects.get(id=int(request.data.get('task')))
-        task.delete_task=True
+        task.is_deleted=True
         task.save()
         return Response(status=status.HTTP_202_ACCEPTED)
 
@@ -179,15 +186,20 @@ class StartTimeView(APIView):
         if not request.data.get('task'):
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         if timer_serializer.is_valid():
-            timer = timer_serializer.save()
-            timer.end_time = timer.start_time + datetime.timedelta(minutes=Configuration.objects.first().pomo_time)
-            timer.is_active = True # to  show that timer is active and not completed by force
-            timer.save()
-            print(timer)
-            task = Task.objects.get(id=int(request.data.get('task')))
-            time_task = TaskTimer(timer=timer,task=task)
-            time_task.save()
-            return Response({'end_time':timer.end_time,'id':timer.id},status=status.HTTP_201_CREATED)
+            try:
+                with transaction.atomic():
+                    timer = timer_serializer.save()
+                    timer.end_time = timer.start_time + datetime.timedelta(minutes=Configuration.objects.first().pomo_time)
+                    timer.is_active = True # to  show that timer is active and not completed by force
+                    timer.save()
+                    print(timer)
+                    task = Task.objects.get(id=int(request.data.get('task')))
+                    time_task = TaskTimer(timer=timer,task=task)
+                    time_task.save()
+                    return Response({'end_time':timer.end_time,'id':timer.id},status=status.HTTP_201_CREATED)
+            except Exception as e:
+                print(e)
+                return Response(status=status.HTTP_403_FORBIDDEN)
         else:
             print(timer_serializer.errors)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -275,19 +287,22 @@ class CreateBreakView(APIView):
     '''Long/short '''
     permission_classes=[IsAuthenticated]
     def post(self,request):
+        if Break.objects.filter(end_time__gt=timezone.now()).count():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
         if not request.POST.get('break_type'):
             pass
-        instance = Break(start_time = timezone.now(),break_type =request.POST.get('break_type'),user=request.user )
+        print(request.data.get('break_type'),'-____---___')
+        instance = Break(start_time = timezone.now(),break_type =request.data.get('break_type'),user=request.user )
         config = Configuration.objects.get(user=request.user)
 
-        if request.POST.get('break_type')=='LONG':
+        if request.data.get('break_type')=='LONG':
             config = Configuration.objects.get(user=request.user)
             instance.end_time = timezone.now()+datetime.timedelta(minutes=(config.long_break_time))
         else:
-            instance.end_time = timezone.now()+datetime.timedelta(minutes=(config.shor))
+            instance.end_time = timezone.now()+datetime.timedelta(minutes=(config.short_break_time))
         # if instance.val():
         instance.save()
-        return Response({'start_time':instance.start_time},status=status.HTTP_201_CREATED)
+        return Response({'end_time':instance.end_time},status=status.HTTP_201_CREATED)
         # else:
         #     return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 class PauseBreakView(APIView):

@@ -5,6 +5,7 @@ urlpatterns = [
     path("task/create", CreateTaskView.as_view(), name=""),
     path("task/list", ListTaskView.as_view(), name=""),
     path("task", TaskView.as_view(), name=""),
+    # path("task/delete", Dele.as_view(), name="")
     path("task/selected", TaskSelectedView.as_view(), name=""),
     path("dashboard/", DashboardAPIView.as_view(), name=""),
     

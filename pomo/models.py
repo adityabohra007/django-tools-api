@@ -21,15 +21,20 @@ class Timer(models.Model):
     paused = models.ManyToManyField(Paused,null=True,blank=True) # save all pause data here  so as to calculate the completetion of timer based on pause
     user =models.ForeignKey(User,on_delete=models.PROTECT)
     
+class TaskQuerySet(models.QuerySet):
+    def active(self):
+        return self.filter(is_deleted=False)
 class Task(models.Model):
     '''Right now without auth'''
     title = models.CharField(max_length=100)
-    description = models.TextField()
+    description = models.CharField(null=True,blank=True,max_length=500)
     want_to_focus = models.IntegerField()
     check_off = models.BooleanField(default=False,null=True)
     is_deleted= models.BooleanField(default=False,null=True)
     # is_selected = models.BooleanField(default=False,null=True)
     user= models.ForeignKey(User,on_delete=models.PROTECT)
+    task = TaskQuerySet.as_manager()
+    objects= models.Manager()
 
 class TaskSelected(models.Model):
     '''Any task that is in this model is the selected task'''
