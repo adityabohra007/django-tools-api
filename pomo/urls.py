@@ -7,6 +7,8 @@ urlpatterns = [
     path("task", TaskView.as_view(), name=""),
     # path("task/delete", Dele.as_view(), name="")
     path("task/selected", TaskSelectedView.as_view(), name=""),
+    path("task/checkoff",TaskCheckOffApiView.as_view(), name=""),
+    path("task/timer", TaskTimerView.as_view(), name=""),
     path("dashboard/", DashboardAPIView.as_view(), name=""),
     
     path('timer/start',StartTimeView.as_view(),name='start_timer'),
@@ -14,6 +16,7 @@ urlpatterns = [
     path("timer/status", TimerStatus.as_view(), name=""),
     
     path("configuration/", ConfigApiView.as_view(), name=""),
+    path("configuration/update/", ConfigUpdateAPIView.as_view(), name=""),
 
 path("break/create", CreateBreakView.as_view(), name=""),
 path("break/stop", PauseBreakView.as_view(), name="")

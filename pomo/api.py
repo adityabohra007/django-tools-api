@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
 from rest_framework.response import Response
-from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer,TaskSelectedSerializer,ConfigurationSerializer,TaskTimerSerializer,BreakSerializer
+from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer,TaskSelectedSerializer,ConfigurationSerializer,TaskTimerSerializer,BreakSerializer,ThemeSerializer,ConfigurationUpdateSerializer,TaskCheckOffSerializer
 from rest_framework import status
 from .utils import parse_date,parse_datetime_with_timezone,time_left_in_seconds
 from django.utils import timezone
@@ -62,6 +62,18 @@ class CreateTaskView(APIView):
             print(serializer_class.errors)
         return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
+class TaskTimerView(APIView):
+    def get(self,request):
+        t = timezone.now()
+        query = TaskTimer.objects.filter(
+            task__user=request.user
+            ).filter(
+            Q(timer__start_time__date=t.date(),timer__end_time__lt=t)|
+            Q(timer__start_time__date=t.date(),timer__is_completed=True)
+            )
+        ser = TaskTimerSerializer(query,many=True)
+        return Response(ser.data,status=status.HTTP_200_OK)
+        
 class TaskView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes=(IsAuthenticated,)
 
@@ -96,8 +108,34 @@ class ConfigApiView(APIView):
     permission_classes=(IsAuthenticated,)
     # authentication_classes=[JWTCookieAuthentication]
     def get(self,request):
-        ser = ConfigurationSerializer(instance=Configuration.objects.first())
+        ser = ConfigurationSerializer(instance=Configuration.objects.get(user=request.user))
         return Response({'data':ser.data},status=status.HTTP_200_OK)
+class ConfigUpdateAPIView(APIView):
+    def post(self,request):
+        print(request.data,request.POST,'updating config')
+        config = Configuration.objects.get(user=request.user)
+        ser = ConfigurationUpdateSerializer(instance=config,data=request.data)
+        if ser.is_valid():
+            theme_ser = ThemeSerializer(instance=config.theme,data=request.data['theme'])
+            if theme_ser.is_valid():
+                theme_ser.save()
+                ser.save()
+                return Response(status=status.HTTP_202_ACCEPTED)
+            else:
+                print(theme_ser.errors)
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        else:
+            print(ser.errors)
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+class TaskCheckOffApiView(APIView):
+    permission_classes=(IsAuthenticated,)
+    def post(self,request):
+        ser = TaskCheckOffSerializer(instance = Task.objects.get(id=request.data.get('id')),data=request.data)
+        if ser.is_valid():
+            ser.save()
+            return Response(status=status.HTTP_202_ACCEPTED)
+        else:
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 class TaskSelectedView(APIView):
     permission_classes=(IsAuthenticated,)
 

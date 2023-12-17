@@ -33,11 +33,16 @@ class TaskSerializer(serializers.ModelSerializer):
         self.user= user
         super().__init__(instance, data, **kwargs)
     # def save(self, **kwargs):
+
+class TaskCheckOffSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Task
+        fields = ('check_off',)
         
 class TaskDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
-        fields = ['id','title','description','want_to_focus']
+        fields = ['id','title','description','want_to_focus','check_off']
         
 class TaskSelectedSerializer(serializers.ModelSerializer):
     task = TaskDataSerializer()
@@ -60,6 +65,20 @@ class ConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Configuration
         fields ='__all__'
+    # def update(self, instance, validated_data):
+        # print(instance,validated_data,'update')
+        # instance.theme.pomodoro = validated_data['theme']['pomodoro']
+        # instance.theme.short_break = validated_data['theme']['short_break']
+        # instance.theme.long_break = validated_data['theme']['long_break']
+        # instance.theme.save()
+
+
+        # return super().update(instance, validated_data)
+class ConfigurationUpdateSerializer(serializers.ModelSerializer):
+    # theme = ThemeSerializer()
+    class Meta:
+        model = Configuration
+        exclude =['id','user','theme']
 
 class ConfigurationFormSerializer(serializers.ModelSerializer):
     theme = ThemeSerializer()

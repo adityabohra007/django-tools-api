@@ -20,7 +20,8 @@ class Timer(models.Model):
     is_paused = models.BooleanField(default=False) # when paused , to start create new instance of timer where it complete remaining time
     paused = models.ManyToManyField(Paused,null=True,blank=True) # save all pause data here  so as to calculate the completetion of timer based on pause
     user =models.ForeignKey(User,on_delete=models.PROTECT)
-    
+    def __str__(self):
+        return str(self.start_time)+'----'+str(self.end_time)+"---"+str(self.is_completed)
 class TaskQuerySet(models.QuerySet):
     def active(self):
         return self.filter(is_deleted=False)
