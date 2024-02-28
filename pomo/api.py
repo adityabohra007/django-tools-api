@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
 from rest_framework.response import Response
-from .serializers import TaskSerializer,TaskDataSerializer,TimerSerializer,TimerDataSerializer,TaskSelectedSerializer,ConfigurationSerializer,TaskTimerSerializer,BreakSerializer,ThemeSerializer,ConfigurationUpdateSerializer,TaskCheckOffSerializer
+from .serializers import *
 from rest_framework import status
 from .utils import parse_date,parse_datetime_with_timezone,time_left_in_seconds
 from django.utils import timezone
@@ -37,8 +37,16 @@ class CreateTaskView(APIView):
     def post(self,request):
         print('running')
         data= request.data
-        data['user'] = request.user.id
-        serializer_class = TaskSerializer(user=request.user,data=data)
+        # data['user'] = request.user.id
+        # return Response(status=status.HTTP_200_OK)
+        
+
+        serializer_class = TaskSerializer(
+                                          data={'user':request.user.id,
+                                                                  'title':data['title'],
+                                                                  'want_to_focus':data['want_to_focus'],
+                                                                  'description':data['description']
+                                                                  })
         if serializer_class.is_valid():
         # serializer_class
             try:
@@ -366,9 +374,16 @@ class DashboardAPIView(APIView):
     permission_classes=[IsAuthenticated]
     def get(self,request):
         print(TaskTimer.objects.filter(),'dashboard tasktimer')
-        task_timer = TaskTimer.objects.filter(task__user=request.user,timer__end_time__lt=timezone.now()).order_by('timer__start_time')
-        ser = TaskTimerSerializer(task_timer,many=True)
-        break_instance  = Break.objects.filter(user =request.user)
+        t = timezone.now()
+        tasktimer= TaskTimer.objects.filter(
+            task__user=request.user
+            ).filter(
+            Q(timer__start_time__date=t.date(),timer__end_time__lt=t)|
+            Q(timer__start_time__date=t.date(),timer__is_completed=True)
+            )
+        # task_timer = TaskTimer.objects.filter(task__user=request.user,timer__end_time__lt=timezone.now()).order_by('timer__start_time')
+        ser = TaskTimerSerializer(tasktimer,many=True)
+        break_instance  = Break.objects.filter(user =request.user,start_time__date=t.date(),end_time__lt=t)
         break_ser = BreakSerializer(break_instance,many=True)
         # Now make a timeline, iterate over the data and convert the 1 minute to 1px and by difference in pauses use it to show pauses and so on.
         # leave rest of the postion which was not used used as white space
@@ -376,6 +391,36 @@ class DashboardAPIView(APIView):
 
 
 
+class TemplateAPI(APIView):
+    def get(self,request):
+        instance = TaskTemplate.objects.filter(user = request.user)
+        ser = TaskTemplateSerializer(instance,many=True)
+        
+        return Response({'data':ser.data}, status=status.HTTP_200_OK)
+    def post(self,request):
+        query = Task.objects.filter(user=request.user)
+        name = request.data.get('name')
+        if not name:
+            return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
+        template = TaskTemplate.objects.create(name=name)
+        create = [
+               Task(title=i.title,description=i.description,want_to_focus=i.want_to_focus,user=request.user) for i in query
+        ]
+        print(create,'template')
+        instance = TaskTemplateItem.objects.bulk_create(create)
+        for i in instance:
+            template.task.add(i.id)
+        print(instance,'instance')
+        return Response(status=status.HTTP_201_CREATED)
+    
+class RemoveCheckOff(APIView):
+    def post(self,request):
+        task = Task.objects.filter(user=request.user,is_deleted=False,check_off=True)
+        for check in task:
+            check.check_off=False
+            check.save()
+            
+        return Response(status=status.HTTP_200_OK)
 
 
 # timeline api

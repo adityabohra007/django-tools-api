@@ -43,7 +43,7 @@ class TestConfigurationSerializer(TestCase):
 class TestTaskSerializer(TestCase):
     def test_create(self):
         user = User.objects.create_user(username='testuser',password='testpassword')
-        ser = TaskSerializer(user =user ,data={'title':'Pomo project','description':'Complete this today','want_to_focus':3})
+        ser = TaskSerializer(data={'title':'Pomo project','description':'Complete this today','want_to_focus':3})
         if ser.is_valid():
             ser.save()
             task = Task.objects.first()

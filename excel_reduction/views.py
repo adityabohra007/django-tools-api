@@ -67,8 +67,11 @@ def delete_column(request):
                 instance = ExcelFile.objects.get(id=int(request.session['excel_selected']))
                 wb = load_workbook(instance.file_data.path)
                 ws = wb.get_sheet_by_name(sheet)
-                column = list(map(int,request.GET.getlist('column')))
+                print(extract_column_names(ws))
+                column = sorted(list(map(int,request.GET.getlist('column'))),reverse=True)
                 delete = [ delete_column_excel(ws,i) for i in column]
+                print(extract_column_names(ws))
                 wb.save(instance.file_data.name)
+                
                 return JsonResponse({'columns':'received','status':'deleted'})
     return JsonResponse({'status':'error',})

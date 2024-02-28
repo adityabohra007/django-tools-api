@@ -30,8 +30,8 @@ class Task(models.Model):
     title = models.CharField(max_length=100)
     description = models.CharField(null=True,blank=True,max_length=500)
     want_to_focus = models.IntegerField()
-    check_off = models.BooleanField(default=False,null=True)
-    is_deleted= models.BooleanField(default=False,null=True)
+    check_off = models.BooleanField(default=False,null=True) # just for indication that it is completed nothing much
+    is_deleted= models.BooleanField(default=False,null=True) # no instance is every deleted they are hidden from current instances
     # is_selected = models.BooleanField(default=False,null=True)
     user= models.ForeignKey(User,on_delete=models.PROTECT)
     task = TaskQuerySet.as_manager()
@@ -81,3 +81,24 @@ class Break(models.Model):
     user = models.ForeignKey(User,on_delete=models.PROTECT)
     def __str__(self):
         return self.break_type +'('+str(self.start_time)+'-'+str(self.end_time)+')'
+    
+# class TaskTemplateItem(Task):
+#     # testing = models.CharField(max_length=100)
+#     class Meta:
+#         db_table = 'TaskTemplateItem'
+#         # managed = True
+#         # verbose_name = 'ModelName'
+#         # verbose_name_plural = 'ModelNames'
+class TaskTemplateItem(models.Model):
+    '''Right now without auth'''
+    title = models.CharField(max_length=100)
+    description = models.CharField(null=True,blank=True,max_length=500)
+    want_to_focus = models.IntegerField()
+    check_off = models.BooleanField(default=False,null=True)
+    is_deleted= models.BooleanField(default=False,null=True)
+    # is_selected = models.BooleanField(default=False,null=True)
+    user= models.ForeignKey(User,on_delete=models.PROTECT)
+class TaskTemplate(models.Model):
+    name = models.CharField(max_length=100)
+    task = models.ManyToManyField(TaskTemplateItem)
+    user = models.ForeignKey(User,on_delete=models.PROTECT,default=1)

@@ -25,6 +25,7 @@ def extract_column_names(ws):
     return col
     
 def delete_column_excel(ws,index):
+    print('delete_column_excel-----',index)
     ws.delete_cols(index)
     return True
 def change_sheet_active():

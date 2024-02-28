@@ -28,16 +28,16 @@ class TimerAllStateTestCase(APITestCase):
     def test_final(self):
         client = APIClient()
         client.force_authenticate(user=self.user)
-        # login = client.post('/dj-rest-auth/login/',{'username':'testuser','password':'testpassword'})
-        # self.assertEqual(login.status_code,200)
-        # client.credentials(
-        #     HTTP_AUTHORIZATION="Token " + login.data["access"]
-        # )
-        resp =client.post('/pomo/task/create',{'title':'Pomo project','description':'Complete this today','want_to_focus':3},
-                        #   headers= {'HTTP_AUTHORIZATION':"Bearer " + login.data["access"]}
-                          )
-        # print('checking headers',resp.headers)
-        # self.assertEqual(resp.status_code,200)
+        
+        login = client.post('/dj-rest-auth/login/',{'username':'testuser','password':'testpassword'})
+        self.assertEqual(login.status_code,200)
+        client.credentials(
+            HTTP_AUTHORIZATION="Token " + login.data["access"]
+        )
+        # End Auth
+        resp =client.post('/pomo/task/create',{'title':'Pomo project','description':'Complete this today','want_to_focus':3},)
+        print('checking headers',resp.headers)
+        self.assertEqual(resp.status_code,201)
     # def test_auth(self):
     #     client = APIClient(enforce_csrf_checks=True)
     #     # login = client.login(username='testuser',password='testpassword')
@@ -312,3 +312,41 @@ class TimerAllStateTestCase(APITestCase):
 #         self.assertEqual(status.data['status'],'Nothing')
 
         
+
+class TestTemplateApiview(TestCase):
+    def setUp(self):
+        self.factory = APIClient()
+        theme = Theme(short_break='#aaaa',long_break='#cbcd',pomodoro='#edac')
+        theme.save()
+        self.user = User.objects.create_user(username='testuser',password='testpassword')
+        config = Configuration(user=self.user,theme=theme,pomo_time=25,short_break_time=5,long_break_time=10)
+        config.save()
+    
+    def test_get(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        login = client.post('/dj-rest-auth/login/',{'username':'testuser','password':'testpassword'})
+        self.assertEqual(login.status_code,200)
+        client.credentials(
+            HTTP_AUTHORIZATION="Token " + login.data["access"]
+        )
+        # End Auth
+    def test_post(self):
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        
+        login = client.post('/dj-rest-auth/login/',{'username':'testuser','password':'testpassword'})
+        self.assertEqual(login.status_code,200)
+        client.credentials(
+            HTTP_AUTHORIZATION="Token " + login.data["access"]
+        )
+        # End Auth
+        resp =client.post('/pomo/task/create',{'title':'Pomo project','description':'Complete this today','want_to_focus':3},)
+        print('checking headers',resp.headers)
+        self.assertEqual(resp.status_code,201)
+        # now calling template
+        req = client.post('/pomo/task/template')
+        self.assertEqual(req.status_code,201)
+        # Should save all currently active template to template
+    

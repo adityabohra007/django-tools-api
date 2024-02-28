@@ -19,5 +19,8 @@ urlpatterns = [
     path("configuration/update/", ConfigUpdateAPIView.as_view(), name=""),
 
 path("break/create", CreateBreakView.as_view(), name=""),
-path("break/stop", PauseBreakView.as_view(), name="")
+path("break/stop", PauseBreakView.as_view(), name=""),
+
+path("task/template", TemplateAPI.as_view(), name=""),
+path('task/checkoff/reset',RemoveCheckOff.as_view())
 ]

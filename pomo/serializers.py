@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.fields import empty
-from .models import Task,Timer,Paused,TaskSelected,Configuration,Theme,TaskTimer,Break
+from .models import *
 from .utils import parse_date
 class PausedSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,8 +29,8 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
-    def __init__(self, user,instance=None, data=..., **kwargs):
-        self.user= user
+    def __init__(self,instance=None, data=..., **kwargs):
+        # self.user= user
         super().__init__(instance, data, **kwargs)
     # def save(self, **kwargs):
 
@@ -91,3 +91,13 @@ class BreakSerializer(serializers.ModelSerializer):
     class Meta:
         model = Break
         fields=['id','start_time','end_time','break_type']
+        
+class TaskTemplateItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TaskTemplateItem
+        fields='__all__'
+class TaskTemplateSerializer(serializers.ModelSerializer):
+    # task = TaskTemplateItemSerializer(many=True)
+    class Meta:
+        model = TaskTemplate
+        fields='__all__'
