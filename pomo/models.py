@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from django.db import models
 from django.contrib.auth.models import User
+from  django.db.models   import Q
+from django.utils import timezone
 # Create your models here.
 class Paused(models.Model):
     '''This is used to manage pause data 
@@ -10,6 +12,9 @@ class Paused(models.Model):
     end_time =models.DateTimeField(null=True)
     is_active= models.BooleanField(default=True)
     
+class TimerQuerySet(models.QuerySet):
+    def completed(self):
+        return self.filter(Q(is_completed=True)|Q(end_time__lt=timezone.now()))
 class Timer(models.Model):
     '''Calculate from start_time to current time , then countdown to 0'''
     start_time = models.DateTimeField(null=True)
@@ -20,6 +25,8 @@ class Timer(models.Model):
     is_paused = models.BooleanField(default=False) # when paused , to start create new instance of timer where it complete remaining time
     paused = models.ManyToManyField(Paused,null=True,blank=True) # save all pause data here  so as to calculate the completetion of timer based on pause
     user =models.ForeignKey(User,on_delete=models.PROTECT)
+    custom = TimerQuerySet.as_manager()
+    objects = models.Manager()
     def __str__(self):
         return str(self.start_time)+'----'+str(self.end_time)+"---"+str(self.is_completed)
 class TaskQuerySet(models.QuerySet):

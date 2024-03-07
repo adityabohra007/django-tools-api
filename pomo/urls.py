@@ -22,5 +22,7 @@ path("break/create", CreateBreakView.as_view(), name=""),
 path("break/stop", PauseBreakView.as_view(), name=""),
 
 path("task/template", TemplateAPI.as_view(), name=""),
-path('task/checkoff/reset',RemoveCheckOff.as_view())
+path('task/checkoff/reset',RemoveCheckOff.as_view()),
+
+path('dashboard/barchart',BarChartAPIView.as_view())
 ]

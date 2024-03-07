@@ -101,3 +101,5 @@ class TaskTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = TaskTemplate
         fields='__all__'
+# class BarChartSerializer(serializers.ModelSerializer):
+    

@@ -83,10 +83,10 @@ class TaskTimerView(APIView):
         return Response(ser.data,status=status.HTTP_200_OK)
         
 class TaskView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes=(IsAuthenticated,)
+    permission_classes=[IsAuthenticated]
 
     def put(self,request):
-        print(request.data.get('id'))
+        # print(request.data.get('id'))
         if not request.data.get('id'):
             return Response(status=status.HTTP_304_NOT_MODIFIED)
         instance= Task.objects.get(id=int(request.data.get('id')))
@@ -113,12 +113,14 @@ def any_time_active():
 class ThemeApiView(APIView):
     pass
 class ConfigApiView(APIView):
-    permission_classes=(IsAuthenticated,)
+    permission_classes=[IsAuthenticated]
     # authentication_classes=[JWTCookieAuthentication]
     def get(self,request):
         ser = ConfigurationSerializer(instance=Configuration.objects.get(user=request.user))
         return Response({'data':ser.data},status=status.HTTP_200_OK)
 class ConfigUpdateAPIView(APIView):
+    permission_classes=[IsAuthenticated]
+
     def post(self,request):
         print(request.data,request.POST,'updating config')
         config = Configuration.objects.get(user=request.user)
@@ -216,7 +218,7 @@ class TimerStatus(APIView):
         
         return Response({"data":serializer.data,'time_left':time_left})
 class StartTimeView(APIView):
-    permission_classes=[IsAuthenticated]
+    permission_classes=(IsAuthenticated,)
     ''' Timer frontend -
         If not authenticated just start timer without backend api
         Condition :
@@ -365,7 +367,60 @@ class PauseBreakView(APIView):
 class SettingsAPIView(APIView):
     pass
 
-
+class ConvinentPrint:
+    def __init__(self):
+        self.pre_post=''
+    def output(self,string):
+        return print(self.pre_post,string,self.pre_post)
+cprint=ConvinentPrint()
+cprint.pre_post='##'
+class BarChartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self,request):
+        mode =self.request.GET.get('mode')
+        if mode=='Week':
+            timer = Timer.custom.filter(user=self.request.user).filter(Q(start_time__gt=timezone.now()-datetime.timedelta(days=7))|Q(start_time__lt=timezone.now())).completed().order_by('start_time')
+            print('BarChartAPIView',timer,Timer.objects.filter().values())
+            d = {}
+            for i in range(0,8):
+                v = (timezone.now()-datetime.timedelta(days=i))
+                print(v,'vvvv',timer.filter(start_time__day=v.day))
+                if timer.filter(start_time__day=v.day).count():
+                    print('access')
+                    if d.get(v):
+                        d[v]+=1
+                    else:
+                        d[v]=1
+                
+            print(d,'barcharttttttttttttttttttt')
+            return Response({},status=status.HTTP_200_OK)
+            return Response()
+        elif mode=='Month':
+            timer = Timer.custom.filter(user=self.request.user).filter(Q(start_time__gt=timezone.now()-datetime.timedelta(days=30))|Q(start_time__lt=timezone.now())).completed().order_by('start_time')
+            print('BarChartAPIView-Month',timer,Timer.objects.filter().count())
+            # timer = timer.
+            d = {}
+            for i in range(0,31):
+                v = (timezone.now()-datetime.timedelta(days=i))
+                v_string=datetime.datetime.strftime(v,"%d-%m-%Y")
+                print( v,'vvvv',timer.filter(start_time__day=v.day))
+                if timer.filter(start_time__day=v.day).count():
+                    print('access')
+                    if d.get(v_string):
+                        d[v_string]+=1
+                    else:
+                        d[v_string]=1
+                
+            print(d,'barcharttttttttttttttttttt')
+            import json
+            return Response(d,status=status.HTTP_200_OK)
+        elif mode == 'Year':
+            pass
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        timers = Timer.custom.completed()
+        print(timers,'barcharts')
+        return Response({},status=status.HTTP_200_OK)
 class DashboardAPIView(APIView):
     '''
         Uses data, One day's data , timer data ,pause data ,no data compare.
@@ -373,7 +428,7 @@ class DashboardAPIView(APIView):
     '''
     permission_classes=[IsAuthenticated]
     def get(self,request):
-        print(TaskTimer.objects.filter(),'dashboard tasktimer')
+        # print(TaskTimer.objects.filter(),'dashboard tasktimer')
         t = timezone.now()
         tasktimer= TaskTimer.objects.filter(
             task__user=request.user
@@ -392,6 +447,8 @@ class DashboardAPIView(APIView):
 
 
 class TemplateAPI(APIView):
+    permission_classes=[IsAuthenticated]
+
     def get(self,request):
         instance = TaskTemplate.objects.filter(user = request.user)
         ser = TaskTemplateSerializer(instance,many=True)
@@ -406,14 +463,16 @@ class TemplateAPI(APIView):
         create = [
                Task(title=i.title,description=i.description,want_to_focus=i.want_to_focus,user=request.user) for i in query
         ]
-        print(create,'template')
+        # print(create,'template')
         instance = TaskTemplateItem.objects.bulk_create(create)
         for i in instance:
             template.task.add(i.id)
-        print(instance,'instance')
+        # print(instance,'instance')
         return Response(status=status.HTTP_201_CREATED)
     
 class RemoveCheckOff(APIView):
+    permission_classes=[IsAuthenticated]
+
     def post(self,request):
         task = Task.objects.filter(user=request.user,is_deleted=False,check_off=True)
         for check in task:
