@@ -114,7 +114,6 @@ class ThemeApiView(APIView):
     pass
 class ConfigApiView(APIView):
     permission_classes=[IsAuthenticated]
-    # authentication_classes=[JWTCookieAuthentication]
     def get(self,request):
         ser = ConfigurationSerializer(instance=Configuration.objects.get(user=request.user))
         return Response({'data':ser.data},status=status.HTTP_200_OK)
@@ -239,6 +238,8 @@ class StartTimeView(APIView):
                     timer = timer_serializer.save()
                     timer.end_time = timer.start_time + datetime.timedelta(minutes=Configuration.objects.first().pomo_time)
                     timer.is_active = True # to  show that timer is active and not completed by force
+                    config =  Configuration.objects.get(user = request.user)
+                    timer.total_time =config.pomo_time
                     timer.save()
                     print(timer)
                     task = Task.objects.get(id=int(request.data.get('task')))
@@ -295,14 +296,6 @@ class UpdateTimeView(APIView):
                         paused_instance.end_time = current_time
                         paused_instance.save()
                         timer.is_paused=False
-                        time_count = 0
-                        print([(i.start_time,i.end_time) for i in timer.paused.all()])
-                        for i in timer.paused.all():
-                            try:
-                                time_count+= (i.end_time-i.start_time ).total_seconds()//60
-                            except Exception as e:
-                                print(e,'exception')
-                        print(time_count,'time_count')
                         timer.end_time=timezone.now()+datetime.timedelta(minutes=time_left_in_seconds(instance=timer)/60)
  # now start_time  to end_time ,subtract pause_time (add all time from all pause time ) to find total time completed
                         # paused_instance.save()
@@ -313,7 +306,6 @@ class UpdateTimeView(APIView):
                             status=status.HTTP_200_OK)
                     else:
                         return Response(status=status.HTTP_400_BAD_REQUEST)
-
                 else:
                     return Response(status=status.HTTP_403_FORBIDDEN)
             elif state == 'completed':

@@ -3,6 +3,7 @@ import datetime
 from django.db.models import Q
 from django.utils import timezone
 from datetime import timedelta
+from .models import Configuration
 def check_if_any_timer_already_active(current_time):
     '''Current time to be taken from user in api'''
     # print(current_time,'in checking',Timer.objects.filter(end_time__gt=current_time) ,Timer.objects.filter(is_completed=False).count())
@@ -39,6 +40,7 @@ def parse_datetime_with_timezone(date):
 def time_left_in_seconds(instance):
     time_count=0
     paused = None
+    config = Configuration.objects.get(user = instance.user)
     for item in instance.paused.all():
         if item.end_time==None:
             time_count+=(timezone.now()-item.start_time).total_seconds()
@@ -46,7 +48,7 @@ def time_left_in_seconds(instance):
             time_count+=(item.end_time-item.start_time).total_seconds()
     # time_count is time wasted in pause
     total_time_from_start_to_now = (timezone.now()-instance.start_time).total_seconds()
-    return 25*60-abs(total_time_from_start_to_now-time_count)# subtracting total required pomo by time until now -paused time
+    return config.pomo_time*60-abs(total_time_from_start_to_now-time_count)# subtracting total required pomo by time until now -paused time
 
 
 # concept of time

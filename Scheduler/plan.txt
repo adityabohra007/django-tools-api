@@ -1,0 +1,32 @@
+Day Scheduler
+Goals
+Estimate completion (not compulsory)
+keep count of goal compeleted  can also be shown at every login
+if not completed the any goal every day send email and alert to them
+Also connect goals to pomo if needed.
+create a list of up next
+list of life wasted
+create tag system  -the same system can be used to color code in pomo too
+# Week Scheduler
+Month Scheduler
+Show calender
+when open a calendar for one more two modes - day wise week wise , so that day wise have
+every day's work is listed and in weekwise  total positive work is shown . And if time is included as in used with pomo. 
+That time will also be added to that
+
+
+
+Todo list of todo - 
+Book - List of books
+Languanges -List of languages
+
+And so to connect the attempt the task provide connection method so that can see what work is done on a task 
+Then can show the total work done on a Task 
+
+
+
+//Schedule next day reminder
+
+13March: 
+Audio on start and end and on notification 
+
