@@ -374,18 +374,20 @@ class BarChartAPIView(APIView):
             timer = Timer.custom.filter(user=self.request.user).filter(Q(start_time__gt=timezone.now()-datetime.timedelta(days=7))|Q(start_time__lt=timezone.now())).completed().order_by('start_time')
             print('BarChartAPIView',timer,Timer.objects.filter().values())
             d = {}
-            for i in range(0,8):
+            for i in range(0,7):
                 v = (timezone.now()-datetime.timedelta(days=i))
                 print(v,'vvvv',timer.filter(start_time__day=v.day))
-                if timer.filter(start_time__day=v.day).count():
-                    print('access')
-                    if d.get(v):
-                        d[v]+=1
-                    else:
-                        d[v]=1
-                
+                v_string=datetime.datetime.strftime(v,"%d-%m-%Y")
+
+                # if timer.filter(start_time__day=v.day).count():
+                print('something is wrong',timer.filter(start_time__day=v.day).count(),'-----dc-vd-dv-')
+                if d.get(v_string):
+                    d[v_string]+=1
+                else:
+                    d[v_string]=timer.filter(start_time__day=v.day).count()
+            
             print(d,'barcharttttttttttttttttttt')
-            return Response({},status=status.HTTP_200_OK)
+            return Response(d,status=status.HTTP_200_OK)
             return Response()
         elif mode=='Month':
             timer = Timer.custom.filter(user=self.request.user).filter(Q(start_time__gt=timezone.now()-datetime.timedelta(days=30))|Q(start_time__lt=timezone.now())).completed().order_by('start_time')
@@ -396,12 +398,12 @@ class BarChartAPIView(APIView):
                 v = (timezone.now()-datetime.timedelta(days=i))
                 v_string=datetime.datetime.strftime(v,"%d-%m-%Y")
                 print( v,'vvvv',timer.filter(start_time__day=v.day))
-                if timer.filter(start_time__day=v.day).count():
-                    print('access')
-                    if d.get(v_string):
-                        d[v_string]+=1
-                    else:
-                        d[v_string]=1
+                # if timer.filter(start_time__day=v.day).count():
+                print('access')
+                if d.get(v_string):
+                    d[v_string]+=1
+                else:
+                    d[v_string]=timer.filter(start_time__day=v.day).count()
                 
             print(d,'barcharttttttttttttttttttt')
             import json
