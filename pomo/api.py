@@ -1,13 +1,11 @@
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
 from rest_framework import viewsets
 from rest_framework.response import Response
-from traitlets import Float
 from .serializers import *
 from rest_framework import status
-from .utils import parse_date, parse_datetime_with_timezone, time_left_in_seconds
+from .utils import parse_datetime_with_timezone, time_left_in_seconds
 from django.utils import timezone
 from django.db import transaction
 
@@ -17,7 +15,6 @@ import datetime
 from .utils import check_if_any_timer_already_active
 from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
-from dj_rest_auth.jwt_auth import JWTAuthentication, JWTCookieAuthentication
 
 # right now working on guest user only
 
@@ -42,48 +39,6 @@ class ListTaskView(generics.ListAPIView):
 
 
 # task = TaskViewset.as_view(``)
-
-
-class CreateTaskView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    # authentication_classes=[]
-    def post(self, request):
-        print("running")
-        data = request.data
-        # data['user'] = request.user.id
-        # return Response(status=status.HTTP_200_OK)
-
-        serializer_class = TaskSerializer(
-            data={
-                "user": request.user.id,
-                "title": data["title"],
-                "want_to_focus": data["want_to_focus"],
-                "description": data["description"],
-            }
-        )
-        if serializer_class.is_valid():
-            # serializer_class
-            try:
-                with transaction.atomic():
-                    instance = serializer_class.save()
-                    tp = TaskPosition(task=instance, position=0)
-                    tp.save()
-                    return Response(status=status.HTTP_201_CREATED)
-
-            except:
-                print("Error saving")
-                return Response(status=status.HTTP_403_FORBIDDEN)
-                # Time also have to be supplied from frontend
-                # time_serializer = TimerSerializer(data=request.data)
-                # if time_serializer.is_valid():
-                #     timer_saved = time_serializer.save()
-                #     tt = TaskTimer(task=instance,timer=timer_saved)
-                #     tt.save()
-
-        else:
-            print(serializer_class.errors)
-        return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 class TaskTimerView(APIView):
@@ -144,66 +99,6 @@ def any_time_active():
 
 class ThemeApiView(APIView):
     pass
-
-
-class ConfigViewSet(viewsets.ViewSet):
-    def get(self, request):
-        ser = ConfigurationSerializer(
-            instance=Configuration.objects.get(user=request.user)
-        )
-        return Response({"data": ser.data}, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        print(request.data, request.POST, "updating config")
-        config = Configuration.objects.get(user=request.user)
-        ser = ConfigurationUpdateSerializer(instance=config, data=request.data)
-        if ser.is_valid():
-            theme_ser = ThemeSerializer(
-                instance=config.theme, data=request.data["theme"]
-            )
-            if theme_ser.is_valid():
-                theme_ser.save()
-                ser.save()
-                return Response(status=status.HTTP_202_ACCEPTED)
-            else:
-                print(theme_ser.errors)
-            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-        else:
-            print(ser.errors)
-            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-
-
-class ConfigApiView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        print(Configuration.objects.all(), "COnfigura--------")
-        query = get_object_or_404(Configuration, user=request.user)
-        ser = ConfigurationSerializer(instance=query)
-        return Response({"data": ser.data}, status=status.HTTP_200_OK)
-
-
-class ConfigUpdateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        print(request.data, request.POST, "updating config")
-        config = Configuration.objects.get(user=request.user)
-        ser = ConfigurationUpdateSerializer(instance=config, data=request.data)
-        if ser.is_valid():
-            theme_ser = ThemeSerializer(
-                instance=config.theme, data=request.data["theme"]
-            )
-            if theme_ser.is_valid():
-                theme_ser.save()
-                ser.save()
-                return Response(status=status.HTTP_202_ACCEPTED)
-            else:
-                print(theme_ser.errors)
-            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-        else:
-            print(ser.errors)
-            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 class TaskCheckOffApiView(APIView):
@@ -318,6 +213,7 @@ class TimerStatus(APIView):
         return Response({"data": serializer.data, "time_left": time_left})
 
 
+# TIMER METHODS
 class StartTimeView(APIView):
     permission_classes = (IsAuthenticated,)
     """ Timer frontend -
@@ -445,6 +341,7 @@ def calculate_end_time():
     pass
 
 
+# BREAKS
 class CreateBreakView(APIView):
     """Long/short"""
 
@@ -580,6 +477,7 @@ class BarChartAPIView(APIView):
         return Response({}, status=status.HTTP_200_OK)
 
 
+# DASHBOARD
 class DashboardAPIView(APIView):
     """
     Uses data, One day's data , timer data ,pause data ,no data compare.
@@ -737,3 +635,36 @@ class TaskViewset(viewsets.ViewSet):
         else:
             print(serializer_class.errors)
         return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+
+class ConfigViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = ConfigurationFormSerializer
+
+    def get_queryset(self):
+        return Task.task.active()
+
+    def put(self, request):
+        print(request.data, request.POST, "updating config")
+        config = Configuration.objects.get(user=request.user)
+        ser = ConfigurationUpdateSerializer(instance=config, data=request.data)
+        if ser.is_valid():
+            theme_ser = ThemeSerializer(
+                instance=config.theme, data=request.data["theme"]
+            )
+            if theme_ser.is_valid():
+                theme_ser.save()
+                ser.save()
+                return Response(status=status.HTTP_202_ACCEPTED)
+            else:
+                print(theme_ser.errors)
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        else:
+            print(ser.errors)
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    def list(self, request):
+        ser = ConfigurationSerializer(
+            instance=Configuration.objects.get(user=request.user)
+        )
+        return Response({"data": ser.data}, status=status.HTTP_200_OK)
