@@ -29,8 +29,8 @@ class TaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = Task
         fields = '__all__'
-    def __init__(self,instance=None, data=..., **kwargs):
-        # self.user= user
+    def __init__(self,user,instance=None, data=..., **kwargs):
+        self.user= user
         super().__init__(instance, data, **kwargs)
     # def save(self, **kwargs):
 

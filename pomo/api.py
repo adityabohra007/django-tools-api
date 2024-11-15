@@ -1,6 +1,10 @@
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
+from rest_framework import viewsets
 from rest_framework.response import Response
+from traitlets import Float
 from .serializers import *
 from rest_framework import status
 from .utils import parse_date, parse_datetime_with_timezone, time_left_in_seconds
@@ -35,6 +39,9 @@ class ListTaskView(generics.ListAPIView):
 
     def get_queryset(self):
         return Task.task.active()
+
+
+# task = TaskViewset.as_view(``)
 
 
 class CreateTaskView(APIView):
@@ -90,6 +97,17 @@ class TaskTimerView(APIView):
         return Response(ser.data, status=status.HTTP_200_OK)
 
 
+class TaskTimerViewSet(viewsets.ViewSet):
+    def get(self, request):
+        t = timezone.now()
+        query = TaskTimer.objects.filter(task__user=request.user).filter(
+            Q(timer__start_time__date=t.date(), timer__end_time__lt=t)
+            | Q(timer__start_time__date=t.date(), timer__is_completed=True)
+        )
+        ser = TaskTimerSerializer(query, many=True)
+        return Response(ser.data, status=status.HTTP_200_OK)
+
+
 class TaskView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
@@ -128,13 +146,40 @@ class ThemeApiView(APIView):
     pass
 
 
-class ConfigApiView(APIView):
-    permission_classes = [IsAuthenticated]
-
+class ConfigViewSet(viewsets.ViewSet):
     def get(self, request):
         ser = ConfigurationSerializer(
             instance=Configuration.objects.get(user=request.user)
         )
+        return Response({"data": ser.data}, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        print(request.data, request.POST, "updating config")
+        config = Configuration.objects.get(user=request.user)
+        ser = ConfigurationUpdateSerializer(instance=config, data=request.data)
+        if ser.is_valid():
+            theme_ser = ThemeSerializer(
+                instance=config.theme, data=request.data["theme"]
+            )
+            if theme_ser.is_valid():
+                theme_ser.save()
+                ser.save()
+                return Response(status=status.HTTP_202_ACCEPTED)
+            else:
+                print(theme_ser.errors)
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        else:
+            print(ser.errors)
+            return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+
+class ConfigApiView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        print(Configuration.objects.all(), "COnfigura--------")
+        query = get_object_or_404(Configuration, user=request.user)
+        ser = ConfigurationSerializer(instance=query)
         return Response({"data": ser.data}, status=status.HTTP_200_OK)
 
 
@@ -612,3 +657,83 @@ class RemoveCheckOff(APIView):
 # on hover show text, togglable .
 # date on first column,
 # tags-to seperate task and show total /max of which category of task is completed
+
+
+# VIEWSETS
+class TaskViewset(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = TaskDataSerializer
+
+    def get_queryset(self):
+        return Task.task.active()
+
+    def put(self, request):
+        # print(request.data.get('id'))
+        if not request.data.get("id"):
+            return Response(status=status.HTTP_304_NOT_MODIFIED)
+        instance = Task.objects.get(id=int(request.data.get("id")))
+        serializer_class = TaskSerializer(
+            user=request.user, instance=instance, data=request.data, partial=True
+        )
+        if serializer_class.is_valid():
+            instance = serializer_class.save()
+            return Response(status=status.HTTP_202_ACCEPTED)
+        print(serializer_class.error_messages)
+        return Response(status=status.HTTP_406_NOT_ACCEPTABLE)
+
+    def delete(self, request, *args, **kwargs):
+        if not request.data.get("task"):
+            pass
+        task = Task.objects.get(id=int(request.data.get("task")))
+        task.is_deleted = True
+        task.save()
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+    def list(self, request):
+        print("Listing")
+        ser = TaskDataSerializer(self.get_queryset(), many=True)
+        return Response(data=ser.data, status=status.HTTP_200_OK)
+
+    def retrieve(self, request, pk=None):
+        queryset = Task.task.all()
+        task = get_object_or_404(queryset, pk=pk)
+        serializers = TaskSerializer(task)
+        print(serializers.data, "Retrieving")
+        return Response(serializers.data)
+
+    def create(self, request):
+        print("running")
+        data = request.data
+        # data['user'] = request.user.id
+        # return Response(status=status.HTTP_200_OK)
+
+        serializer_class = TaskSerializer(
+            data={
+                "user": request.user.id,
+                "title": data["title"],
+                "want_to_focus": data["want_to_focus"],
+                "description": data["description"],
+            }
+        )
+        if serializer_class.is_valid():
+            # serializer_class
+            try:
+                with transaction.atomic():
+                    instance = serializer_class.save()
+                    tp = TaskPosition(task=instance, position=0)
+                    tp.save()
+                    return Response(status=status.HTTP_201_CREATED)
+
+            except:
+                print("Error saving")
+                return Response(status=status.HTTP_403_FORBIDDEN)
+                # Time also have to be supplied from frontend
+                # time_serializer = TimerSerializer(data=request.data)
+                # if time_serializer.is_valid():
+                #     timer_saved = time_serializer.save()
+                #     tt = TaskTimer(task=instance,timer=timer_saved)
+                #     tt.save()
+
+        else:
+            print(serializer_class.errors)
+        return Response(status=status.HTTP_422_UNPROCESSABLE_ENTITY)
