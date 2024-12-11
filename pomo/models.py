@@ -106,7 +106,11 @@ class TaskTemplateItem(models.Model):
     is_deleted= models.BooleanField(default=False,null=True)
     # is_selected = models.BooleanField(default=False,null=True)
     user= models.ForeignKey(User,on_delete=models.PROTECT)
+    def __str__(self):
+        return self.title
 class TaskTemplate(models.Model):
     name = models.CharField(max_length=100)
     task = models.ManyToManyField(TaskTemplateItem)
     user = models.ForeignKey(User,on_delete=models.PROTECT,default=1)
+    def __str__(self):
+        return self.name

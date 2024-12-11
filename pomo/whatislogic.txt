@@ -22,3 +22,16 @@ pomotask-time model-
  -pomotask
  -pomotimer
  
+
+
+ Tag system-
+ Color and name 
+ multiple tags max 2
+
+ Testing all components of system
+ Login 
+ logout
+ Home
+ 3 states
+ template
+ 

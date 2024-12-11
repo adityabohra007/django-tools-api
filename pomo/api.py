@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404
+from httpx import delete
 from rest_framework.views import APIView
 from rest_framework.viewsets import generics
 from rest_framework import viewsets
@@ -22,7 +23,7 @@ from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
 
-
+    
 class GoogleLogin(
     SocialLoginView
 ):  # if you want to use Authorization Code Grant, use this
@@ -668,3 +669,39 @@ class ConfigViewSet(viewsets.ViewSet):
             instance=Configuration.objects.get(user=request.user)
         )
         return Response({"data": ser.data}, status=status.HTTP_200_OK)
+
+
+
+
+class ProjectViewSet(viewsets.ViewSet):
+    def list(self, request):
+        pass
+
+    def update(self, request):
+        pass
+
+    def create(self, request):
+        pass
+
+    def put(self, request):
+        pass
+
+    def delete(self, request):
+        pass
+
+
+# class ViewSet(viewsets.ViewSet):
+#     def list(self, request):
+#         pass
+
+#     def update(self, request):
+#         pass
+
+#     def create(self, request):
+#         pass
+
+#     def put(self, request):
+#         pass
+
+#     def delete(self, request):
+#         pass
