@@ -1,0 +1,10 @@
+
+Website ui analysis system-
+
+Bill photo analysis system- then provide api 
+Emotion detection system  based on photo
+Text analysis system
+Open cv motion repeatation count system
+
+
+Focus Helper - Plugin and software too -also track what is being used

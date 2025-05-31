@@ -35,3 +35,11 @@ pomotask-time model-
  3 states
  template
  
+
+
+
+Histogram - Gitlab data viewer
+Better task management for every set task 
+Handling of monthly task flow according to the preferred work
+Color code of the task for customization setting
+

@@ -6,3 +6,5 @@ urlpatterns = [
     path("extraction_api/", extraction_api, name=""),
     path("extraction_api/delete/",delete_column,)
 ]
+
+# Delete top null 
